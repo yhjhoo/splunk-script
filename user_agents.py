@@ -3,13 +3,13 @@ from ua_parser import user_agent_parser
 
 # The following log levels are available:
 # Debug (NOISY!!!):
-# LOG_LEVEL = logging.ERROR
+LOG_LEVEL = logging.ERROR
 # Info:
 # LOG_LEVEL = logging.INFO
 # Error:
-LOG_LEVEL = logging.ERROR
+# LOG_LEVEL = logging.ERROR
 SPLUNK_HOME = os.environ.get("SPLUNK_HOME")
-LOG_FILENAME = SPLUNK_HOME+'/var/log/splunk/test_user_agents.log'
+LOG_FILENAME = SPLUNK_HOME+'/var/log/splunk/cus_user_agents.log'
 LOG_FORMAT = "[%(asctime)s] %(name)s %(levelname)s: %(message)s"
 logging.basicConfig(filename=LOG_FILENAME,level=LOG_LEVEL,format=LOG_FORMAT)
 logger = logging.getLogger('user_agents')
@@ -22,7 +22,7 @@ if __name__ == '__main__':
     r = csv.reader(sys.stdin)
     w = csv.writer(sys.stdout)
     have_header = False
-    
+
     header = []
     idx = -1
     for row in r:
@@ -37,13 +37,14 @@ if __name__ == '__main__':
                 z = z + 1
             w.writerow(row)
             continue
-        
+
         # We only care about the cs_user_agent field - everything else is filled in
         http_user_agent = row[idx]
         useragent = urllib.unquote_plus(http_user_agent)
         logger.debug('found useragent %s' % http_user_agent)
-        
+
         logger.debug('sending to ua-parser')
+
         results = []
         try:
 	    results = user_agent_parser.Parse(http_user_agent)
@@ -51,6 +52,7 @@ if __name__ == '__main__':
             logger.error(err)
             continue
         logger.debug('back from ua-parser')
+
 
         # create our results for Splunk
         # using the full results
@@ -93,6 +95,12 @@ if __name__ == '__main__':
             forSplunk['ua_os_patch'] = results['os']['patch']
         if results['os']['patch_minor'] is not None:
             forSplunk['ua_os_patch_minor'] = results['os']['patch_minor']
+
+
+        if forSplunk['ua_family'] == "unknown":
+            forSplunk['ua_agentStr'] = http_user_agent
+        else: 
+            forSplunk['ua_agentStr'] = forSplunk['ua_family'] + "/" + forSplunk['ua_major']
 
         logger.debug('for return: %s' % forSplunk)
         # Now write it out
